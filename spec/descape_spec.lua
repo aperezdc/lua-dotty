@@ -32,4 +32,49 @@ describe("dotty.descape.decode", function ()
             { ctrl = false, alt = false, shift = false })
       end
    end)
+
+   it("handles comples keypad escapes", function ()
+      local keypad_escapes = {
+         keypad_up = {
+            ["\27[1;2A"] = { ctrl = false, shift = true,  alt = false },
+            ["\27[1;3A"] = { ctrl = false, shift = false, alt = true  },
+            ["\27[1;4A"] = { ctrl = false, shift = true,  alt = true  },
+            ["\27[1;5A"] = { ctrl = true,  shift = false, alt = false },
+            ["\27[1;6A"] = { ctrl = true,  shift = true,  alt = false },
+            ["\27[1;7A"] = { ctrl = true,  shift = false, alt = true  },
+         },
+         keypad_down = {
+            ["\27[1;2B"] = { ctrl = false, shift = true,  alt = false },
+            ["\27[1;3B"] = { ctrl = false, shift = false, alt = true  },
+            ["\27[1;4B"] = { ctrl = false, shift = true,  alt = true  },
+            ["\27[1;5B"] = { ctrl = true,  shift = false, alt = false },
+            ["\27[1;6B"] = { ctrl = true,  shift = true,  alt = false },
+            ["\27[1;7B"] = { ctrl = true,  shift = false, alt = true  },
+         },
+         keypad_right = {
+            ["\27[1;2C"] = { ctrl = false, shift = true,  alt = false },
+            ["\27[1;3C"] = { ctrl = false, shift = false, alt = true  },
+            ["\27[1;4C"] = { ctrl = false, shift = true,  alt = true  },
+            ["\27[1;5C"] = { ctrl = true,  shift = false, alt = false },
+            ["\27[1;6C"] = { ctrl = true,  shift = true,  alt = false },
+            ["\27[1;7C"] = { ctrl = true,  shift = false, alt = true  },
+         },
+         keypad_left = {
+            ["\27[1;2D"] = { ctrl = false, shift = true,  alt = false },
+            ["\27[1;3D"] = { ctrl = false, shift = false, alt = true  },
+            ["\27[1;4D"] = { ctrl = false, shift = true,  alt = true  },
+            ["\27[1;5D"] = { ctrl = true,  shift = false, alt = false },
+            ["\27[1;6D"] = { ctrl = true,  shift = true,  alt = false },
+            ["\27[1;7D"] = { ctrl = true,  shift = false, alt = true  },
+         },
+      }
+      for handler, variants in pairs(keypad_escapes) do
+         for escape_sequence, modifiers in pairs(variants) do
+            local delegate = {}
+            stub(delegate, handler)
+            decode(iter_bytes(escape_sequence), delegate)
+            assert.stub(delegate[handler]).called_with(delegate, modifiers)
+         end
+      end
+   end)
 end)
