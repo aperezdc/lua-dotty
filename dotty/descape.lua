@@ -105,7 +105,6 @@ local function parse_csi_params(nextbyte, delegate)
          end
          t_insert(params, result)
       else
-         break
          -- Non-numeric parameter.
          d_warning(delegate,
                    "non-numeric CSI sequence parameters are unsupported")
