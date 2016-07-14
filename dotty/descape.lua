@@ -101,7 +101,7 @@ local function parse_csi_params(nextbyte, delegate)
             result = result * multiplier + c - DIGIT_0
             multiplier = multiplier * 10
             c = nextbyte()
-            d_debug(delegate, "parse_csi_params: c = 0x%02X (%c) LOOP, r=%d, m=%d", c, c, result, multiplier)
+            d_debug(delegate, "parse_csi_params: c=0x%02X (%c) LOOP, r=%d, m=%d", c, c, result, multiplier)
          end
          t_insert(params, result)
       else
@@ -114,7 +114,7 @@ local function parse_csi_params(nextbyte, delegate)
 
    until c ~= SEMICOLON
 
-   d_debug(delegate, "parse_csi_params: #param = %d, c = %s, imm = %s", #params, c, imm)
+   d_debug(delegate, "parse_csi_params: #param=%d, c=%s, imm=%s", #params, c, imm)
    return params, c, imm
 end
 
@@ -132,6 +132,8 @@ local function csi_add_modifier_flags(params, handler_name)
          t.ctrl = true
       elseif code == 6 then
          t.shift, t.ctrl = true, true
+      elseif code == 7 then
+         t.ctrl, t.alt = true, true
       end
    end
    params[1], params[2] = t, nil
@@ -204,10 +206,41 @@ local function decode_csi_sequence(nextbyte, delegate)
    end
 end
 
+local simple_escapes = {
+   [ascii.O] = {
+      [ascii.A] = function (nextbyte, delegate)
+         local modifiers = { ctrl = false, alt = false, shift = false }
+         d_invoke(delegate, "keypad_up", modifiers)
+      end,
+      [ascii.B] = function (nextbyte, delegate)
+         local modifiers = { ctrl = false, alt = false, shift = false }
+         d_invoke(delegate, "keypad_down", modifiers)
+      end,
+      [ascii.C] = function (nextbyte, delegate)
+         local modifiers = { ctrl = false, alt = false, shift = false }
+         d_invoke(delegate, "keypad_right", modifiers)
+      end,
+      [ascii.D] = function (nextbyte, delegate)
+         local modifiers = { ctrl = false, alt = false, shift = false }
+         d_invoke(delegate, "keypad_left", modifiers)
+      end,
+   },
+}
+
 local function decode_escape(nextbyte, delegate)
    local c1 = nextbyte()
+   d_debug(delegate, "decode_escape: c=%c (0x%02X)", c1, c1)
    if c1 == LBRACKET then  -- ESC[…
       return decode_csi_sequence(nextbyte, delegate)
+   end
+   local handler = simple_escapes[c1]
+   while type(handler) == "table" do
+      local c = nextbyte()
+      d_debug(delegate, "decode_escape: c=%c (0x%02X) - LOOP", c, c)
+      handler = handler[c]
+   end
+   if handler then
+      return handler(nextbyte, delegate)
    end
 end
 
