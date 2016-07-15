@@ -77,4 +77,29 @@ describe("dotty.descape.decode", function ()
          end
       end
    end)
+
+   it("handles DSR reports", function ()
+      local delegate = {}
+      stub(delegate, "device_status_reported")
+      decode(iter_bytes("\27[0n"), delegate)
+      assert.stub(delegate.device_status_reported).called_with(delegate, 0)
+      -- Try omitting the optional parameter.
+      decode(iter_bytes("\27[n"), delegate)
+      assert.stub(delegate.device_status_reported).called_with(delegate, 0)
+   end)
+
+   it("handles DSR cursor reports", function ()
+      local delegate = {}
+      stub(delegate, "cursor_position_reported")
+      decode(iter_bytes("\27[12;5R"), delegate)
+      assert.stub(delegate.cursor_position_reported)
+         .called_with(delegate, 12, 5)
+      -- Try omitting the optional parameters.
+      decode(iter_bytes("\27[42R"), delegate)
+      assert.stub(delegate.cursor_position_reported)
+         .called_with(delegate, 42, 1)
+      decode(iter_bytes("\27[R"), delegate)
+      assert.stub(delegate.cursor_position_reported)
+         .called_with(delegate, 1, 1)
+   end)
 end)
