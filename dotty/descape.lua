@@ -175,7 +175,7 @@ local csi_imm_final_chars = {
    [ascii.QMARK] = {
       [ascii.c] = function (params)
          params[1], params[2], params.n = params[2] or 0, nil, 1
-         return "device_atributes_reported"
+         return "device_attributes_reported"
       end,
    },
 }

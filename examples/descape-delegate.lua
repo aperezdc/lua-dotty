@@ -51,6 +51,7 @@ end
 
 -- Install reporter handlers.
 reporter "device_status_reported"
+reporter "device_attributes_reported"
 reporter "cursor_position_reported"
 reporter "keypad_up"
 reporter "keypad_down"
@@ -98,6 +99,7 @@ ttyctl(io.stdout):with_cbreak(function ()
    io.write("Press Ctrl-D to end the input loop.\n\r")
 
    -- Request some information from the terminal usin CSI escape sequences.
+   io.write("\27[c")  -- What Are You?
    io.write("\27[5n") -- DSR (Device Status Report), report status
    io.write("\27[6n") -- DSR (Device Status Report), report active position
    io.flush()

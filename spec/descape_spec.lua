@@ -102,4 +102,14 @@ describe("dotty.descape.decode", function ()
       assert.stub(delegate.cursor_position_reported)
          .called_with(delegate, 1, 1)
    end)
+
+   it("handles What Are You? reports", function ()
+      local delegate = {}
+      stub(delegate, "device_attributes_reported")
+      for _, num in ipairs { 0, 1, 2, 3, 4, 5, 6, 7 } do
+         decode(iter_bytes(string.format("\27[?1;%dc", num)), delegate)
+         assert.stub(delegate.device_attributes_reported)
+            .called_with(delegate, num)
+      end
+   end)
 end)
