@@ -205,24 +205,39 @@ local function decode_csi_sequence(nextbyte, delegate)
    end
 end
 
+local function do_keypad_up(nextbyte, delegate)
+   local modifiers = { ctrl = false, alt = false, shift = false }
+   d_invoke(delegate, "keypad_up", modifiers)
+end
+
+local function do_keypad_down(nextbyte, delegate)
+   local modifiers = { ctrl = false, alt = false, shift = false }
+   d_invoke(delegate, "keypad_down", modifiers)
+end
+
+local function do_keypad_right(nextbyte, delegate)
+   local modifiers = { ctrl = false, alt = false, shift = false }
+   d_invoke(delegate, "keypad_right", modifiers)
+end
+
+local function do_keypad_left(nextbyte, delegate)
+   local modifiers = { ctrl = false, alt = false, shift = false }
+   d_invoke(delegate, "keypad_left", modifiers)
+end
+
 local simple_escapes = {
+   -- Arrows in VT52 mode.
+   [ascii.A] = do_keypad_up,
+   [ascii.B] = do_keypad_down,
+   [ascii.C] = do_keypad_right,
+   [ascii.D] = do_keypad_left,
+
    [ascii.O] = {
-      [ascii.A] = function (nextbyte, delegate)
-         local modifiers = { ctrl = false, alt = false, shift = false }
-         d_invoke(delegate, "keypad_up", modifiers)
-      end,
-      [ascii.B] = function (nextbyte, delegate)
-         local modifiers = { ctrl = false, alt = false, shift = false }
-         d_invoke(delegate, "keypad_down", modifiers)
-      end,
-      [ascii.C] = function (nextbyte, delegate)
-         local modifiers = { ctrl = false, alt = false, shift = false }
-         d_invoke(delegate, "keypad_right", modifiers)
-      end,
-      [ascii.D] = function (nextbyte, delegate)
-         local modifiers = { ctrl = false, alt = false, shift = false }
-         d_invoke(delegate, "keypad_left", modifiers)
-      end,
+      -- Arrows in ANSI Mode + Cursor Key Mode.
+      [ascii.A] = do_keypad_up,
+      [ascii.B] = do_keypad_down,
+      [ascii.C] = do_keypad_right,
+      [ascii.D] = do_keypad_left,
    },
 }
 

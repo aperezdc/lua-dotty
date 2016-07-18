@@ -33,7 +33,23 @@ describe("dotty.descape.decode", function ()
       end
    end)
 
-   it("handles comples keypad escapes", function ()
+   it("handles VT52 arrow key escapes", function ()
+      local simple_keypad_escapes = {
+         keypad_up    = "\27A",
+         keypad_down  = "\27B",
+         keypad_right = "\27C",
+         keypad_left  = "\27D",
+      }
+      for handler, escape_sequence in pairs(simple_keypad_escapes) do
+         local delegate = {}
+         stub(delegate, handler)
+         decode(iter_bytes(escape_sequence), delegate)
+         assert.stub(delegate[handler]).called_with(delegate,
+            { ctrl = false, alt = false, shift = false })
+      end
+   end)
+
+   it("handles complex keypad escapes", function ()
       local keypad_escapes = {
          keypad_up = {
             ["\27[1;2A"] = { ctrl = false, shift = true,  alt = false },
