@@ -18,6 +18,7 @@ build = {
    type = "builtin",
    modules = {
       ["dotty.ttyctl"]     = "dotty/ttyctl.lua",
+      ["dotty.descape"]    = "dotty/descape.lua",
       ["dotty.unidecode"]  = "dotty/unidecode.lua",
       ["dotty.asciicodes"] = "dotty/asciicodes.lua",
    }
