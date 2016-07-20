@@ -14,7 +14,7 @@ local ESC, CAN, SUB, QMARK = ascii.ESC, ascii.CAN, ascii.SUB, ascii.QMARK
 local SEMICOLON, LBRACKET = ascii.SEMICOLON, ascii.LBRACKET
 local DIGIT_0, DIGIT_9 = ascii.DIGIT_0, ascii.DIGIT_9
 
-local s_char = string.char
+local s_char, getmetatable = string.char, getmetatable
 local error, pcall, type, t_insert = error, pcall, type, table.insert
 local unpack, pack = table.unpack or unpack, table.pack or function (...)
    local n = select("#", ...)
@@ -25,23 +25,28 @@ local unpack, pack = table.unpack or unpack, table.pack or function (...)
    return t
 end
 
+local function callable(f)
+   return type(f) == "function" or (type(f) == "table"
+      and type(getmetatable(f).__call) == "function")
+end
+
 local function d_error(delegate, format, ...)
    local message = format:format(...)
-   if delegate and type(delegate.parse_error) == "function" then
-      delegate:parse_error(message)
+   if delegate and callable(delegate.error) then
+      delegate:error(message)
    end
    -- Raise the error anyway, just in case the delegate does not.
    error(message)
 end
 
 local function d_warning(delegate, format, ...)
-   if delegate and type(delegate.warning) == "function" then
+   if delegate and callable(delegate.warning) then
       delegate:warning(format:format(...))
    end
 end
 
 local function d_debug(delegate, format, ...)
-   if delegate and type(delegate.debug) == "function" then
+   if delegate and callable(delegate.debug) then
       delegate:debug(format:format(...))
    end
 end

@@ -226,4 +226,19 @@ describe("dotty.descape.decode", function ()
          end
       end
    end)
+
+   it("catches errors in handlers", function ()
+      local delegate = {}
+      function delegate:key_up(modifiers, count)
+         error("Evil666")
+      end
+      assert.error_matches(function ()
+         decode(iter_bytes("\27OA"), delegate)
+      end, "Evil666")
+      stub(delegate, "error")
+      assert.error_matches(function ()
+         decode(iter_bytes("\27OA"), delegate)
+      end, "Evil666")
+      assert.stub(delegate.error).called_with(delegate, match.is_string())
+   end)
 end)
