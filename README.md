@@ -36,3 +36,11 @@ The development version can be installed with:
 ```sh
 luarocks install --server=https://luarocks.org/dev dotty
 ```
+
+
+Resources
+---------
+
+* [ANSI escape code (Wikipedia)](https://en.wikipedia.org/wiki/ANSI_escape_code).
+* [Extended CSI sequences](http://www.leonerd.org.uk/hacks/fixterms/).
+* [vt100.net](http://www.vt100.net).
