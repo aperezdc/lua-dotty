@@ -196,14 +196,12 @@ local function decode_csi_sequence(nextbyte, delegate)
       end
 
       local result = 0
-      local multiplier = 1
       while c >= DIGIT_0 and c <= DIGIT_9 do
-         result = result * multiplier + c - DIGIT_0
-         multiplier = multiplier * 10
+         result = result * 10 + c - DIGIT_0
          c = nextbyte()
          if c == nil then return end
-         d_debug(delegate, "decode_csi_sequence: '%c' (0x%02X) LOOP r=%d m=%d",
-                 c, c, result, multiplier)
+         d_debug(delegate, "decode_csi_sequence: '%c' (0x%02X) LOOP r=%d",
+                 c, c, result)
          if c == ESC then return decode_escape(nextbyte, delegate) end
          if c == SUB or c == CAN then return decode(nextbyte, delegate) end
       end
