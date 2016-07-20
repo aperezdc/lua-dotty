@@ -25,10 +25,9 @@ local unpack, pack = table.unpack or unpack, table.pack or function (...)
    return t
 end
 
-
 local function d_error(delegate, format, ...)
    local message = format:format(...)
-   if type(delegate.parse_error) == "function" then
+   if delegate and type(delegate.parse_error) == "function" then
       delegate:parse_error(message)
    end
    -- Raise the error anyway, just in case the delegate does not.
@@ -36,13 +35,13 @@ local function d_error(delegate, format, ...)
 end
 
 local function d_warning(delegate, format, ...)
-   if type(delegate.warning) == "function" then
+   if delegate and type(delegate.warning) == "function" then
       delegate:warning(format:format(...))
    end
 end
 
 local function d_debug(delegate, format, ...)
-   if type(delegate.debug) == "function" then
+   if delegate and type(delegate.debug) == "function" then
       delegate:debug(format:format(...))
    end
 end
@@ -63,14 +62,16 @@ local function d_invoke_ret(delegate, name, ...)
 end
 
 local function d_invoke(delegate, name, ...)
-   local handler = delegate[name]
-   if handler then
-      local ok, err = pcall(handler, delegate, ...)
-      if not ok then
-         d_error(delegate, "error in delegate handler %q: %s", name, err)
+   if delegate then
+      local handler = delegate[name]
+      if handler then
+         local ok, err = pcall(handler, delegate, ...)
+         if not ok then
+            d_error(delegate, "error in delegate handler %q: %s", name, err)
+         end
+      else
+         d_warning(delegate, "no delegate handler for %q", name)
       end
-   else
-      d_warning(delegate, "no delegate handler for %q", name)
    end
 end
 

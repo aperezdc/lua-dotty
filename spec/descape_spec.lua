@@ -141,4 +141,8 @@ describe("dotty.descape.decode", function ()
             .called_with(delegate, num)
       end
    end)
+
+   it("works without a delegate", function ()
+      decode(iter_bytes("\27[31;1m"))
+   end)
 end)
