@@ -143,6 +143,8 @@ local csi_final_chars = {
    [ascii.B] = function (p) return csi_add_modifier_flags(p, "key_down") end,
    [ascii.C] = function (p) return csi_add_modifier_flags(p, "key_right") end,
    [ascii.D] = function (p) return csi_add_modifier_flags(p, "key_left") end,
+   [ascii.F] = function (p) return csi_add_modifier_flags(p, "key_end") end,
+   [ascii.H] = function (p) return csi_add_modifier_flags(p, "key_home") end,
    [ascii.TILDE] = function (params)
       local handler_name = csi_tilde_translation[params[1]]
       if handler_name then

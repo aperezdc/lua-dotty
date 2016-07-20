@@ -92,8 +92,11 @@ describe("dotty.descape.decode", function ()
    }
    it("handles VT52 Home/End key escapes",
       test_delegate_keys(prefixed_keys("\27", vtXXX_home_end_keys)))
-   it("handles VT100 Home/End key escpes",
+   it("handles VT100 Home/End key escapes",
       test_delegate_keys(prefixed_keys("\27O", vtXXX_home_end_keys)))
+   it("handles CSI Home/End key escapes",
+      test_delegate_keys(keys_with_modifiers("\27[1%(modifier)s%(code)s",
+                                             vtXXX_home_end_keys)))
 
    local csi_tilde_keys = {
       key_insert = "2", key_delete   = "3",
