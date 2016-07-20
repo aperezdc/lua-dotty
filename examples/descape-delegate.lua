@@ -50,13 +50,15 @@ local function reporter(name)
 end
 
 -- Install reporter handlers.
-reporter "device_status_reported"
-reporter "device_attributes_reported"
-reporter "cursor_position_reported"
-reporter "keypad_up"
-reporter "keypad_down"
-reporter "keypad_right"
-reporter "keypad_left"
+for _, name in ipairs {
+   "device_status_reported",
+   "device_attributes_reported",
+   "cursor_position_reported",
+   "key_up", "key_down", "key_right", "key_left",
+   "key_f1", "key_f2", "key_f3", "key_f4", "key_f5", "key_f6",
+   "key_f7", "key_f8", "key_f9", "key_f10", "key_f11", "key_f12",
+} do reporter(name) end
+
 
 --
 -- This reader is a coroutine which yields one byte of input each time

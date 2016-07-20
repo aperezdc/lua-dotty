@@ -117,10 +117,32 @@ local function parse_csi_params(nextbyte, delegate)
    return params, c, imm
 end
 
+-- See: http://www.leonerd.org.uk/hacks/fixterms/
+local csi_tilde_translation = {
+   [2]  = "key_insert",
+   [3]  = "key_delete",
+   [5]  = "key_pageup",
+   [6]  = "key_pagedown",
+   [7]  = "key_home",
+   [8]  = "key_end",
+   [11] = "key_f1",
+   [12] = "key_f2",
+   [13] = "key_f3",
+   [14] = "key_f4",
+   [15] = "key_f5",
+   [17] = "key_f6",
+   [18] = "key_f7",
+   [19] = "key_f8",
+   [20] = "key_f9",
+   [21] = "key_f10",
+   [23] = "key_f11",
+   [24] = "key_f12",
+}
+
 local function csi_add_modifier_flags(params, handler_name)
    local t = { shift = false, ctrl = false, alt = false }
-   if #params == 2 and params[1] == 1 then
-      local code =  params[2]
+   if #params == 2 then
+      local code = params[2]
       if code == 2 then
          t.shift = true
       elseif code == 3 then
@@ -165,10 +187,16 @@ local csi_final_chars = {
       return "device_status_reported"
    end,
 
-   [ascii.A] = function (p) return csi_add_modifier_flags(p, "keypad_up") end,
-   [ascii.B] = function (p) return csi_add_modifier_flags(p, "keypad_down") end,
-   [ascii.C] = function (p) return csi_add_modifier_flags(p, "keypad_right") end,
-   [ascii.D] = function (p) return csi_add_modifier_flags(p, "keypad_left") end,
+   [ascii.A] = function (p) return csi_add_modifier_flags(p, "key_up") end,
+   [ascii.B] = function (p) return csi_add_modifier_flags(p, "key_down") end,
+   [ascii.C] = function (p) return csi_add_modifier_flags(p, "key_right") end,
+   [ascii.D] = function (p) return csi_add_modifier_flags(p, "key_left") end,
+   [ascii.TILDE] = function (params)
+      local handler_name = csi_tilde_translation[params[1]]
+      if handler_name then
+         return csi_add_modifier_flags(params, handler_name)
+      end
+   end,
 }
 
 local csi_imm_final_chars = {
@@ -205,41 +233,28 @@ local function decode_csi_sequence(nextbyte, delegate)
    end
 end
 
-local function do_keypad_up(nextbyte, delegate)
-   local modifiers = { ctrl = false, alt = false, shift = false }
-   d_invoke(delegate, "keypad_up", modifiers)
+local simple_escapes = { [ascii.O] = {} }
+
+local function add_vt52_and_ansi(byte, name)
+   local handler = function (nextbyte, delegate)
+      local modifiers = { ctrl = false, alt = false, shift = false }
+      d_invoke(delegate, name, modifiers)
+   end
+   simple_escapes[byte] = handler           -- VT52 mode.
+   simple_escapes[ascii.O][byte] = handler  -- ANSI+CursorKey mode.
 end
 
-local function do_keypad_down(nextbyte, delegate)
-   local modifiers = { ctrl = false, alt = false, shift = false }
-   d_invoke(delegate, "keypad_down", modifiers)
-end
-
-local function do_keypad_right(nextbyte, delegate)
-   local modifiers = { ctrl = false, alt = false, shift = false }
-   d_invoke(delegate, "keypad_right", modifiers)
-end
-
-local function do_keypad_left(nextbyte, delegate)
-   local modifiers = { ctrl = false, alt = false, shift = false }
-   d_invoke(delegate, "keypad_left", modifiers)
-end
-
-local simple_escapes = {
-   -- Arrows in VT52 mode.
-   [ascii.A] = do_keypad_up,
-   [ascii.B] = do_keypad_down,
-   [ascii.C] = do_keypad_right,
-   [ascii.D] = do_keypad_left,
-
-   [ascii.O] = {
-      -- Arrows in ANSI Mode + Cursor Key Mode.
-      [ascii.A] = do_keypad_up,
-      [ascii.B] = do_keypad_down,
-      [ascii.C] = do_keypad_right,
-      [ascii.D] = do_keypad_left,
-   },
-}
+add_vt52_and_ansi(ascii.A, "key_up")
+add_vt52_and_ansi(ascii.B, "key_down")
+add_vt52_and_ansi(ascii.C, "key_right")
+add_vt52_and_ansi(ascii.D, "key_left")
+add_vt52_and_ansi(ascii.F, "key_end")
+add_vt52_and_ansi(ascii.H, "key_home")
+add_vt52_and_ansi(ascii.P, "key_f1")
+add_vt52_and_ansi(ascii.Q, "key_f2")
+add_vt52_and_ansi(ascii.R, "key_f3")
+add_vt52_and_ansi(ascii.S, "key_f4")
+add_vt52_and_ansi = nil
 
 local function decode_escape(nextbyte, delegate)
    local c1 = nextbyte()

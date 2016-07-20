@@ -14,6 +14,14 @@ local function iter_bytes(s)
    end)
 end
 
+-- Rici Lake's interp() from http://lua-users.org/wiki/StringInterpolation
+local function interpolate(s, tab)
+  return (s:gsub('%%%((%a%w*)%)([-0-9%.]*[cdeEfgGiouxXsq])',
+            function(k, fmt) return tab[k] and ("%"..fmt):format(tab[k]) or
+                '%('..k..')'..fmt end))
+end
+
+
 describe("dotty.descape.decode", function ()
    local decode = require "dotty.descape" .decode
 
@@ -33,43 +41,70 @@ describe("dotty.descape.decode", function ()
       [";6"] = { ctrl = true,  shift = true,  alt = false },
       [";7"] = { ctrl = true,  shift = false, alt = true  },
    }
-   local function prefixed_keys_with_modifiers(prefix, keys)
+   local function keys_with_modifiers(format, keys)
       return coroutine.wrap(function ()
          for name, code in pairs(keys) do
             for mod_code, mods in pairs(modifiers) do
-               coroutine.yield(name, prefix .. mod_code .. code, mods)
+               local sequence = interpolate(format,
+                  { code = code, modifier = mod_code })
+               coroutine.yield(name, sequence, mods)
             end
          end
       end)
    end
 
-   local arrow_keys = {
-      key_up = "A", key_down = "B", key_right = "C", key_left = "D"
-   }
-
    local function test_delegate_keys(generator)
-      for handler, escape_sequence, modifiers in generator do
-         local delegate = {}
-         stub(delegate, handler)
-         decode(iter_bytes(escape_sequence), delegate)
-         local msg = string.format("escape %q for %s",
-                                   escape_sequence, handler)
-         assert.stub(delegate[handler]).message(msg).called_with(delegate,
-            modifiers or { ctrl = false, alt = false, shift = false })
+      return function ()
+         for handler, escape_sequence, modifiers in generator do
+            local delegate = {}
+            stub(delegate, handler)
+            decode(iter_bytes(escape_sequence), delegate)
+            local msg = string.format("escape %q for %s",
+                                      escape_sequence, handler)
+            assert.stub(delegate[handler]).message(msg).called_with(delegate,
+               modifiers or { ctrl = false, alt = false, shift = false })
+         end
       end
    end
 
-   it("handles simple arrow key escapes", function ()
-      test_delegate_keys(prefixed_keys("\27O", arrow_keys))
-   end)
+   local arrow_keys = {
+      key_up = "A", key_down = "B", key_right = "C", key_left = "D",
+   }
+   it("handles VT52 arrow key escapes",
+      test_delegate_keys(prefixed_keys("\27", arrow_keys)))
+   it("handles VT100 arrow key escapes",
+      test_delegate_keys(prefixed_keys("\27O", arrow_keys)))
+   it("handles CSI arrow key escapes",
+      test_delegate_keys(keys_with_modifiers("\27[1%(modifier)s%(code)s",
+                                             arrow_keys)))
 
-   it("handles VT52 arrow key escapes", function ()
-      test_delegate_keys(prefixed_keys("\27", arrow_keys))
-   end)
+   local vtXXX_f1_f4_keys = {
+      key_f1 = "P", key_f2 = "Q", key_f3 = "R", key_f4 = "S"
+   }
+   it("handles VT52 F1-F4 key escapes",
+      test_delegate_keys(prefixed_keys("\27", vtXXX_f1_f4_keys)))
+   it("handles VT100 F1-F4 key escapes",
+      test_delegate_keys(prefixed_keys("\27O", vtXXX_f1_f4_keys)))
 
-   it("handles complex keypad escapes", function ()
-      test_delegate_keys(prefixed_keys_with_modifiers("\27[1", arrow_keys))
-   end)
+   local vtXXX_home_end_keys = {
+      key_end = "F", key_home = "H"
+   }
+   it("handles VT52 Home/End key escapes",
+      test_delegate_keys(prefixed_keys("\27", vtXXX_home_end_keys)))
+   it("handles VT100 Home/End key escpes",
+      test_delegate_keys(prefixed_keys("\27O", vtXXX_home_end_keys)))
+
+   local csi_tilde_keys = {
+      key_insert = "2", key_delete   = "3",
+      key_pageup = "5", key_pagedown = "6",
+      key_home   = "7", key_end      = "8",
+      key_f1 = "11", key_f2  = "12", key_f3  = "13", key_f4  = "14",
+      key_f5 = "15", key_f6  = "17", key_f7  = "18", key_f8  = "19",
+      key_f9 = "20", key_f10 = "21", key_f11 = "23", key_f12 = "24",
+   }
+   it("handles CSI-~ function keys",
+      test_delegate_keys(keys_with_modifiers("\27[%(code)s%(modifier)s~",
+                                             csi_tilde_keys)))
 
    it("handles DSR reports", function ()
       local delegate = {}
