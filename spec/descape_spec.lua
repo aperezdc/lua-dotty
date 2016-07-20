@@ -62,7 +62,8 @@ describe("dotty.descape.decode", function ()
             local msg = string.format("escape %q for %s",
                                       escape_sequence, handler)
             assert.stub(delegate[handler]).message(msg).called_with(delegate,
-               modifiers or { ctrl = false, alt = false, shift = false })
+               modifiers or { ctrl = false, alt = false, shift = false },
+               match.is_number())
          end
       end
    end

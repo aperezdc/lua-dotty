@@ -141,32 +141,26 @@ local csi_tilde_translation = {
 
 local function csi_add_modifier_flags(params, handler_name)
    local t = { shift = false, ctrl = false, alt = false }
-   if #params == 2 then
-      local code = params[2]
-      if code == 2 then
-         t.shift = true
-      elseif code == 3 then
-         t.alt = true
-      elseif code == 4 then
-         t.shift, t.alt = true, true
-      elseif code == 5 then
-         t.ctrl = true
-      elseif code == 6 then
-         t.shift, t.ctrl = true, true
-      elseif code == 7 then
-         t.ctrl, t.alt = true, true
-      end
+   local code = params[2]
+   if code == 2 then
+      t.shift = true
+   elseif code == 3 then
+      t.alt = true
+   elseif code == 4 then
+      t.shift, t.alt = true, true
+   elseif code == 5 then
+      t.ctrl = true
+   elseif code == 6 then
+      t.shift, t.ctrl = true, true
+   elseif code == 7 then
+      t.ctrl, t.alt = true, true
    end
-   params[1], params[2] = t, nil
-   params.n = 1
-   return handler_name
+   return handler_name, t, params[1] or 1
 end
 
 local csi_final_chars = {
    [ascii.R] = function (params)
-      params[1] = params[1] or 1
-      params[2] = params[2] or 1
-      return "cursor_position_reported"
+      return "cursor_position_reported", params[1] or 1, params[2] or 1
    end,
 
    [ascii.x] = function (params)
@@ -177,14 +171,11 @@ local csi_final_chars = {
          end
          params[1], params.n = 0, 7
       end
-      return "terminal_parameters_reported"
+      return "terminal_parameters_reported", unpack(params)
    end,
 
    [ascii.n] = function (params)
-      if params.n ~= 1 then
-         params[1], params.n = 0, 1
-      end
-      return "device_status_reported"
+      return "device_status_reported", (params.n == 1) and params[1] or 0
    end,
 
    [ascii.A] = function (p) return csi_add_modifier_flags(p, "key_up") end,
@@ -202,8 +193,8 @@ local csi_final_chars = {
 local csi_imm_final_chars = {
    [ascii.QMARK] = {
       [ascii.c] = function (params)
-         params[1], params[2], params.n = params[2] or 0, nil, 1
-         return "device_attributes_reported"
+         -- XXX: Is it okay to ignore params[1]?
+         return "device_attributes_reported", params[2] or 0
       end,
    },
 }
@@ -215,9 +206,10 @@ local function decode_csi_sequence(nextbyte, delegate)
    if handler_name then
       -- A function handler might mangle params in-place.
       if type(handler_name) == "function" then
-         handler_name = handler_name(params)
+         d_invoke(delegate, handler_name(params))
+      else
+         d_invoke(delegate, handler_name, unpack(params))
       end
-      d_invoke(delegate, handler_name, unpack(params))
    elseif code >= 0 then
       if imm then
          d_warning(delegate,
@@ -237,8 +229,7 @@ local simple_escapes = { [ascii.O] = {} }
 
 local function add_vt52_and_ansi(byte, name)
    local handler = function (nextbyte, delegate)
-      local modifiers = { ctrl = false, alt = false, shift = false }
-      d_invoke(delegate, name, modifiers)
+      d_invoke(delegate, csi_add_modifier_flags({}, name))
    end
    simple_escapes[byte] = handler           -- VT52 mode.
    simple_escapes[ascii.O][byte] = handler  -- ANSI+CursorKey mode.
