@@ -83,7 +83,7 @@ local function parse_csi_params(nextbyte, delegate)
    local c = nextbyte()
    if c == nil then return end
 
-   if c == QMARK and not imm then
+   if c == QMARK then
       d_debug(delegate, "parse_csi_params: '%c' (0x%02X) - QMARK", c, c)
       imm, c = c, nextbyte()
       if c == nil then return end
