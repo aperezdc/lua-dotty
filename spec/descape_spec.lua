@@ -17,81 +17,58 @@ end
 describe("dotty.descape.decode", function ()
    local decode = require "dotty.descape" .decode
 
-   it("handles simple keypad escapes", function ()
-      local simple_keypad_escapes = {
-         keypad_up    = "\27OA",
-         keypad_down  = "\27OB",
-         keypad_right = "\27OC",
-         keypad_left  = "\27OD",
-      }
-      for handler, escape_sequence in pairs(simple_keypad_escapes) do
+   local function prefixed_keys(prefix, keys)
+      return coroutine.wrap(function ()
+         for name, code in pairs(keys) do
+            coroutine.yield(name, prefix .. code)
+         end
+      end)
+   end
+
+   local modifiers = {
+      [";2"] = { ctrl = false, shift = true,  alt = false },
+      [";3"] = { ctrl = false, shift = false, alt = true  },
+      [";4"] = { ctrl = false, shift = true,  alt = true  },
+      [";5"] = { ctrl = true,  shift = false, alt = false },
+      [";6"] = { ctrl = true,  shift = true,  alt = false },
+      [";7"] = { ctrl = true,  shift = false, alt = true  },
+   }
+   local function prefixed_keys_with_modifiers(prefix, keys)
+      return coroutine.wrap(function ()
+         for name, code in pairs(keys) do
+            for mod_code, mods in pairs(modifiers) do
+               coroutine.yield(name, prefix .. mod_code .. code, mods)
+            end
+         end
+      end)
+   end
+
+   local arrow_keys = {
+      key_up = "A", key_down = "B", key_right = "C", key_left = "D"
+   }
+
+   local function test_delegate_keys(generator)
+      for handler, escape_sequence, modifiers in generator do
          local delegate = {}
          stub(delegate, handler)
          decode(iter_bytes(escape_sequence), delegate)
-         assert.stub(delegate[handler]).called_with(delegate,
-            { ctrl = false, alt = false, shift = false })
+         local msg = string.format("escape %q for %s",
+                                   escape_sequence, handler)
+         assert.stub(delegate[handler]).message(msg).called_with(delegate,
+            modifiers or { ctrl = false, alt = false, shift = false })
       end
+   end
+
+   it("handles simple arrow key escapes", function ()
+      test_delegate_keys(prefixed_keys("\27O", arrow_keys))
    end)
 
    it("handles VT52 arrow key escapes", function ()
-      local simple_keypad_escapes = {
-         keypad_up    = "\27A",
-         keypad_down  = "\27B",
-         keypad_right = "\27C",
-         keypad_left  = "\27D",
-      }
-      for handler, escape_sequence in pairs(simple_keypad_escapes) do
-         local delegate = {}
-         stub(delegate, handler)
-         decode(iter_bytes(escape_sequence), delegate)
-         assert.stub(delegate[handler]).called_with(delegate,
-            { ctrl = false, alt = false, shift = false })
-      end
+      test_delegate_keys(prefixed_keys("\27", arrow_keys))
    end)
 
    it("handles complex keypad escapes", function ()
-      local keypad_escapes = {
-         keypad_up = {
-            ["\27[1;2A"] = { ctrl = false, shift = true,  alt = false },
-            ["\27[1;3A"] = { ctrl = false, shift = false, alt = true  },
-            ["\27[1;4A"] = { ctrl = false, shift = true,  alt = true  },
-            ["\27[1;5A"] = { ctrl = true,  shift = false, alt = false },
-            ["\27[1;6A"] = { ctrl = true,  shift = true,  alt = false },
-            ["\27[1;7A"] = { ctrl = true,  shift = false, alt = true  },
-         },
-         keypad_down = {
-            ["\27[1;2B"] = { ctrl = false, shift = true,  alt = false },
-            ["\27[1;3B"] = { ctrl = false, shift = false, alt = true  },
-            ["\27[1;4B"] = { ctrl = false, shift = true,  alt = true  },
-            ["\27[1;5B"] = { ctrl = true,  shift = false, alt = false },
-            ["\27[1;6B"] = { ctrl = true,  shift = true,  alt = false },
-            ["\27[1;7B"] = { ctrl = true,  shift = false, alt = true  },
-         },
-         keypad_right = {
-            ["\27[1;2C"] = { ctrl = false, shift = true,  alt = false },
-            ["\27[1;3C"] = { ctrl = false, shift = false, alt = true  },
-            ["\27[1;4C"] = { ctrl = false, shift = true,  alt = true  },
-            ["\27[1;5C"] = { ctrl = true,  shift = false, alt = false },
-            ["\27[1;6C"] = { ctrl = true,  shift = true,  alt = false },
-            ["\27[1;7C"] = { ctrl = true,  shift = false, alt = true  },
-         },
-         keypad_left = {
-            ["\27[1;2D"] = { ctrl = false, shift = true,  alt = false },
-            ["\27[1;3D"] = { ctrl = false, shift = false, alt = true  },
-            ["\27[1;4D"] = { ctrl = false, shift = true,  alt = true  },
-            ["\27[1;5D"] = { ctrl = true,  shift = false, alt = false },
-            ["\27[1;6D"] = { ctrl = true,  shift = true,  alt = false },
-            ["\27[1;7D"] = { ctrl = true,  shift = false, alt = true  },
-         },
-      }
-      for handler, variants in pairs(keypad_escapes) do
-         for escape_sequence, modifiers in pairs(variants) do
-            local delegate = {}
-            stub(delegate, handler)
-            decode(iter_bytes(escape_sequence), delegate)
-            assert.stub(delegate[handler]).called_with(delegate, modifiers)
-         end
-      end
+      test_delegate_keys(prefixed_keys_with_modifiers("\27[1", arrow_keys))
    end)
 
    it("handles DSR reports", function ()
