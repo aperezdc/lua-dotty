@@ -78,41 +78,42 @@ end
 local function parse_csi_params(nextbyte, delegate)
    local params = {}
    local imm
-   local c
-   repeat
-      -- Parse one parameter
-      c = nextbyte()
-      d_debug(delegate, "parse_csi_params: c = 0x%02X (%c) - BEGIN", c, c)
-      if c == QMARK and not imm then
-         imm, c = c, nextbyte()
-         d_debug(delegate, "parse_csi_params: c = 0x%02X (%c) - QMARK", c, c)
+   local c = nextbyte()
+   if c == nil then return end
+
+   if c == QMARK and not imm then
+      d_debug(delegate, "parse_csi_params: '%c' (0x%02X) - QMARK", c, c)
+      imm, c = c, nextbyte()
+      if c == nil then return end
+   end
+
+   d_debug(delegate, "parse_csi_params: '%c' (0x%02X) - BEGIN", c, c)
+
+   while c >= DIGIT_0 and c <= DIGIT_9 do
+      -- Discard leading zeroes.
+      while c == DIGIT_0 do
+         c = nextbyte()
+         if c == nil then return end
+         d_debug(delegate, "parse_csi_params: '%c' (0x%02X) - 0-DISCARD", c, c)
       end
 
-      if c >= DIGIT_0 and c <= DIGIT_9 then
-         -- Numeric parameter: up to next semicolon or non-digit.
-         while c == DIGIT_0 do
-            -- Discard leading zeroes.
-            c = nextbyte()
-            d_debug(delegate, "parse_csi_params: c = 0x%02X (%c) - 0-DISCARD", c, c)
-         end
-
-         local result = 0
-         local multiplier = 1
-         while c >= DIGIT_0 and c <= DIGIT_9 do
-            result = result * multiplier + c - DIGIT_0
-            multiplier = multiplier * 10
-            c = nextbyte()
-            d_debug(delegate, "parse_csi_params: c=0x%02X (%c) LOOP, r=%d, m=%d", c, c, result, multiplier)
-         end
-         t_insert(params, result)
-      else
-         -- Non-numeric parameter.
-         d_warning(delegate,
-                   "non-numeric CSI sequence parameters are unsupported")
-         return params, c, imm
+      local result = 0
+      local multiplier = 1
+      while c >= DIGIT_0 and c <= DIGIT_9 do
+         result = result * multiplier + c - DIGIT_0
+         multiplier = multiplier * 10
+         c = nextbyte()
+         if c == nil then return end
+         d_debug(delegate, "parse_csi_params: '%c' (0x%02X) LOOP, r=%d, m=%d", c, c, result, multiplier)
       end
+      t_insert(params, result)
 
-   until c ~= SEMICOLON
+      -- Advance
+      if c == SEMICOLON then
+         c = nextbyte()
+         if c == nil then return end
+      end
+   end
 
    d_debug(delegate, "parse_csi_params: #param=%d, c=%s, imm=%s", #params, c, imm)
    return params, c, imm
