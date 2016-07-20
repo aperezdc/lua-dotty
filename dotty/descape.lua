@@ -10,7 +10,7 @@
 local unidecode = require "dotty.unidecode"
 
 local ascii = require "dotty.asciicodes"
-local ESC, QMARK = ascii.ESC, ascii.QMARK
+local ESC, CAN, SUB, QMARK = ascii.ESC, ascii.CAN, ascii.SUB, ascii.QMARK
 local SEMICOLON, LBRACKET = ascii.SEMICOLON, ascii.LBRACKET
 local DIGIT_0, DIGIT_9 = ascii.DIGIT_0, ascii.DIGIT_9
 
@@ -74,6 +74,8 @@ local function d_invoke(delegate, name, ...)
       end
    end
 end
+
+local decode, decode_escape -- Forward declarations.
 
 local function parse_csi_params(nextbyte, delegate)
    local params = {}
@@ -252,11 +254,38 @@ add_vt52_and_ansi(ascii.R, "key_f3")
 add_vt52_and_ansi(ascii.S, "key_f4")
 add_vt52_and_ansi = nil
 
-local decode  -- Forward declaration
 
-local function decode_escape(nextbyte, delegate)
+local DISCARD_ESCAPE  = 0x30
+local DISCARD_CONTROL = 0x40
+
+-- According to ANSI X3.64, format is "ESC I ... I F" where:
+--
+--  * I: An intermediate character in an escape sequence or a control
+--    sequence, where I is from 40 (octal) to 57 (octal) inclusive.
+--
+--  * F: A final character in:
+--      - An escape sequence, where F is from 60 (octal) to 176 (octal)
+--        inclusive.
+--      - A control sequence, where F is from 100 (octal) to 176 (octal)
+--        inclusive.
+--
+-- For simplicity, we discard any characters up to a "final character",
+-- or a CAN or SUB character is find (any of which cancel the escape
+-- sequence).
+--
+local function discard(nextbyte, delegate, f_lo)
+   repeat
+      local c = nextbyte()
+      if c == nil then return end
+      if c == ESC then return decode_escape(nextbyte, delegate) end
+   until c == CAN or c == SUB or c < f_lo or c > 0x7E
+end
+
+-- This was forward-declared
+decode_escape = function (nextbyte, delegate)
    local c1 = nextbyte()
    if c1 == nil then return end
+
    d_debug(delegate, "decode_escape: '%c' (0x%02X)", c1, c1)
    if c1 == LBRACKET then  -- ESC[…
       return decode_csi_sequence(nextbyte, delegate)
@@ -269,10 +298,17 @@ local function decode_escape(nextbyte, delegate)
       handler = handler[c]
    end
    if handler then
-      handler(nextbyte, delegate)
+      return handler(nextbyte, delegate)
    end
-   return decode(nextbyte, delegate)
+   return discard(nextbyte, delegate, DISCARD_ESCAPE)
 end
+
+-- Unterminated escape sequence followed by another escape: ESC ESC …
+simple_escapes[ascii.O][ESC] = decode_escape
+simple_escapes[ESC] = decode_escape
+
+-- CSI sequence: ESC [ …
+simple_escapes[LBRACKET] = decode_csi_sequence
 
 -- This was forward-declared
 decode = function (nextbyte, delegate)
