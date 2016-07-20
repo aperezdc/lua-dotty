@@ -160,4 +160,67 @@ describe("dotty.descape.decode", function ()
             end)
       end
    end)
+
+   it("restarts after a CAN/SUB character", function ()
+      for _, sequence in ipairs {
+         "\27\24\27[n",  -- CAN
+         "\27\26\27[n",  -- SUB
+         "\27[\24\27[n", -- CAN
+         "\27[\26\27[n", -- SUB
+      } do
+         local delegate = {}
+         stub(delegate, "device_status_reported")
+         local msg = string.format("CAN/SUB sequenc %q", sequence)
+         assert.message(msg).not_has_error(function ()
+            decode(iter_bytes(sequence), delegate)
+         end)
+         assert.stub(delegate.device_status_reported)
+            .message(msg).called_with(delegate, match.is_number())
+      end
+   end)
+
+   local function decode_loop(input, delegate)
+      local nextbyte = iter_bytes(input)
+      local result = ""
+      while true do
+         local c = decode(nextbyte, delegate)
+         if c == nil then
+            return result
+         end
+         result = result .. string.char(c)
+      end
+   end
+
+   it("can be used to strip escape sequences", function ()
+      for expected, inputs in pairs {
+         [""] = {
+            "", "\27", "\27[1A", "\27\27", "\27[1A\27", "\27\27[1A",
+            "\27\24", "\27[\24", "\27[?\24", "\27[1;32\24",  -- CAN
+            "\27\26", "\27[\26", "\27[?\26", "\27[1;32\26",  -- SUB
+         },
+         ["foobar"] = {
+            "foobar\27",         -- Unterminated escape sequence
+            "\27*foobar",        -- Discard one trailing character (prefix)
+            "foo\27*bar",        -- Discard one trailing character (middle)
+            "foobar\27*",        -- Discard one trailing character (suffix)
+            "\27:*foobar",       -- Discard two trailing characters (prefix)
+            "foo\27:*bar",       -- Discard two trailing characters (middle)
+            "foobar\27:*",       -- Discard two trailing characters (suffix)
+            "\27[1;31mfoobar",   -- Valid CSI sequence (prefix)
+            "foo\27[1;31mbar",   -- Valid CSI sequence (middle)
+            "foobar\27[1;31m",   -- Valid CSI sequence (suffix)
+            "\27\24foobar",      -- CAN (prefix)
+            "foo\27\24bar",      -- CAN (middle)
+            "foobar\27\24",      -- CAN (middle)
+            "\27\26foobar",      -- SUB (prefix)
+            "foo\27\26bar",      -- SUB (middle)
+            "foobar\27\26",      -- SUB (middle)
+         },
+      } do
+         for _, input in ipairs(inputs) do
+            local msg = string.format("input %q", input)
+            assert.message(msg).equal(expected, decode_loop(input))
+         end
+      end
+   end)
 end)

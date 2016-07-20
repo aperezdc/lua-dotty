@@ -77,49 +77,6 @@ end
 
 local decode, decode_escape -- Forward declarations.
 
-local function parse_csi_params(nextbyte, delegate)
-   local params = {}
-   local imm
-   local c = nextbyte()
-   if c == nil then return end
-
-   if c == QMARK then
-      d_debug(delegate, "parse_csi_params: '%c' (0x%02X) - QMARK", c, c)
-      imm, c = c, nextbyte()
-      if c == nil then return end
-   end
-
-   d_debug(delegate, "parse_csi_params: '%c' (0x%02X) - BEGIN", c, c)
-
-   while c >= DIGIT_0 and c <= DIGIT_9 do
-      -- Discard leading zeroes.
-      while c == DIGIT_0 do
-         c = nextbyte()
-         if c == nil then return end
-         d_debug(delegate, "parse_csi_params: '%c' (0x%02X) - 0-DISCARD", c, c)
-      end
-
-      local result = 0
-      local multiplier = 1
-      while c >= DIGIT_0 and c <= DIGIT_9 do
-         result = result * multiplier + c - DIGIT_0
-         multiplier = multiplier * 10
-         c = nextbyte()
-         if c == nil then return end
-         d_debug(delegate, "parse_csi_params: '%c' (0x%02X) LOOP, r=%d, m=%d", c, c, result, multiplier)
-      end
-      t_insert(params, result)
-
-      -- Advance
-      if c == SEMICOLON then
-         c = nextbyte()
-         if c == nil then return end
-      end
-   end
-
-   d_debug(delegate, "parse_csi_params: #param=%d, c=%s, imm=%s", #params, c, imm)
-   return params, c, imm
-end
 
 -- See: http://www.leonerd.org.uk/hacks/fixterms/
 local csi_tilde_translation = {
@@ -204,12 +161,61 @@ local csi_imm_final_chars = {
 }
 
 local function decode_csi_sequence(nextbyte, delegate)
-   -- TODO: Move code from parse_csi_params() here.
-   local params, code, imm = parse_csi_params(nextbyte, delegate)
-   if not params then return end
+   local c = nextbyte()
+   if c == nil then return end
+   if c == ESC then return decode_escape(nextbyte, delegate) end
+   if c == SUB or c == CAN then return decode(nextbyte, delegate) end
 
-   local handler_name = imm and csi_imm_final_chars[imm][code]
-                             or csi_final_chars[code]
+   local imm  -- "Intermediate" chracter: ESC [ IMM …
+   if c == QMARK then
+      d_debug(delegate, "decode_csi_sequence: '%c' (0x%02X) QMARK", c, c)
+      imm, c = c, nextbyte()
+      if c == nil then return end
+      if c == ESC then return decode_escape(nextbyte, delegate) end
+      if c == SUB or c == CAN then return decode(nextbyte, delegate) end
+   end
+
+   local params = {}
+   while c >= DIGIT_0 and c <= DIGIT_9 do
+      d_debug(delegate, "decode_csi_sequence: '%c' (0x%02X) BEGIN", c, c)
+
+      -- Discard leading zeroes.
+      while c == DIGIT_0 do
+         c = nextbyte()
+         if c == nil then return end
+         d_debug(delegate, "decode_csi_sequence: '%c' (0x%02X) 0-DISCARD", c, c)
+         if c == ESC then return decode_escape(nextbyte, delegate) end
+         if c == SUB or c == CAN then return decode(nextbyte, delegate) end
+      end
+
+      local result = 0
+      local multiplier = 1
+      while c >= DIGIT_0 and c <= DIGIT_9 do
+         result = result * multiplier + c - DIGIT_0
+         multiplier = multiplier * 10
+         c = nextbyte()
+         if c == nil then return end
+         d_debug(delegate, "decode_csi_sequence: '%c' (0x%02X) LOOP r=%d m=%d",
+                 c, c, result, multiplier)
+         if c == ESC then return decode_escape(nextbyte, delegate) end
+         if c == SUB or c == CAN then return decode(nextbyte, delegate) end
+      end
+      t_insert(params, result)
+
+      -- Advance
+      if c == SEMICOLON then
+         c = nextbyte()
+         if c == nil then return end
+         if c == ESC then return decode_escape(nextbyte, delegate) end
+         if c == SUB or c == CAN then return decode(nextbyte, delegate) end
+      end
+   end
+
+   d_debug(delegate, "decode_csi_sequence: #param=%d c=%s imm=%s",
+           #params, c, imm)
+
+   local handler_name = imm and csi_imm_final_chars[imm][c]
+                             or csi_final_chars[c]
    if handler_name then
       -- A function handler might mangle params in-place.
       if type(handler_name) == "function" then
@@ -217,19 +223,18 @@ local function decode_csi_sequence(nextbyte, delegate)
       else
          d_invoke(delegate, handler_name, unpack(params))
       end
-   elseif code >= 0 then
+   elseif c >= 0 then
       if imm then
          d_warning(delegate,
                    "no CSI sequence handler for %q (0x%02X), imm %q (0x%02X)",
-                   s_char(code), code,
-                   s_char(imm), imm)
+                   s_char(c), c, s_char(imm), imm)
       else
          d_warning(delegate,
                    "no CSI sequence handler for %q (0x%02X)",
-                   s_char(code),
-                   code)
+                   s_char(c), c)
        end
    end
+   return decode(nextbyte, delegate)
 end
 
 local simple_escapes = { [ascii.O] = {} }
@@ -237,6 +242,7 @@ local simple_escapes = { [ascii.O] = {} }
 local function add_vt52_and_ansi(byte, name)
    local handler = function (nextbyte, delegate)
       d_invoke(delegate, csi_add_modifier_flags({}, name))
+      return decode(nextbyte, delegate)
    end
    simple_escapes[byte] = handler           -- VT52 mode.
    simple_escapes[ascii.O][byte] = handler  -- ANSI+CursorKey mode.
@@ -273,34 +279,38 @@ local DISCARD_CONTROL = 0x40
 -- or a CAN or SUB character is find (any of which cancel the escape
 -- sequence).
 --
-local function discard(nextbyte, delegate, f_lo)
-   repeat
-      local c = nextbyte()
+local function discard(nextbyte, delegate, c, f_lo)
+   d_debug(delegate, "discard f_lo=0x%02X: '%c' (0x%02X)", f_lo, c, c)
+   while c ~= CAN and c ~= SUB and c >= f_lo and c <= 0x7E do
+      c = nextbyte()
       if c == nil then return end
+      d_debug(delegate, "discard f_lo=0x%02X: '%c' (0x%02X)", f_lo, c, c)
       if c == ESC then return decode_escape(nextbyte, delegate) end
-   until c == CAN or c == SUB or c < f_lo or c > 0x7E
+   end
+   return decode(nextbyte, delegate)
 end
 
 -- This was forward-declared
 decode_escape = function (nextbyte, delegate)
-   local c1 = nextbyte()
-   if c1 == nil then return end
+   local c = nextbyte()
+   if c == nil then return end
+   d_debug(delegate, "decode_escape: '%c' (0x%02X)", c, c)
+   if c == ESC then return decode_escape(nextbyte, delegate) end
+   if c == SUB or c1 == CAN then return decode(nextbyte, delegate) end
 
-   d_debug(delegate, "decode_escape: '%c' (0x%02X)", c1, c1)
-   if c1 == LBRACKET then  -- ESC[…
-      return decode_csi_sequence(nextbyte, delegate)
-   end
-   local handler = simple_escapes[c1]
+   local handler = simple_escapes[c]
    while type(handler) == "table" do
       local c = nextbyte()
       if c == nil then return end
-      d_debug(delegate, "decode_escape: '%c' (0x%02X) - LOOP", c, c)
+      d_debug(delegate, "decode_escape: '%c' (0x%02X) - NESTED", c, c)
+      if c == ESC then return decode_escape(nextbyte, delegate) end
+      if c == SUB or c1 == CAN then return decode(nextbyte, delegate) end
       handler = handler[c]
    end
    if handler then
       return handler(nextbyte, delegate)
    end
-   return discard(nextbyte, delegate, DISCARD_ESCAPE)
+   return discard(nextbyte, delegate, c, DISCARD_ESCAPE)
 end
 
 -- Unterminated escape sequence followed by another escape: ESC ESC …
