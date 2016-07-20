@@ -67,10 +67,11 @@ for _, name in ipairs {
 local bytereader = coroutine.wrap(function ()
    while true do
       local ch = io.read(1)
-      if not ch then break end
+      if ch == nil then
+         return ascii.EOT
+      end
       coroutine.yield(ch:byte())
    end
-   return ascii.EOT
 end)
 
 --
@@ -85,10 +86,12 @@ end)
 local unicodereader = coroutine.wrap(function ()
    while true do
       local ch = descape.decode(bytereader, delegate)
-      if ch == ascii.EOT then
-         return ch
+      if ch ~= nil then
+         if ch == ascii.EOT then
+            return ch
+         end
+         coroutine.yield(ch)
       end
-      coroutine.yield(ch)
    end
 end)
 

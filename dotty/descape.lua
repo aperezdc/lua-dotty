@@ -201,7 +201,10 @@ local csi_imm_final_chars = {
 }
 
 local function decode_csi_sequence(nextbyte, delegate)
+   -- TODO: Move code from parse_csi_params() here.
    local params, code, imm = parse_csi_params(nextbyte, delegate)
+   if not params then return end
+
    local handler_name = imm and csi_imm_final_chars[imm][code]
                              or csi_final_chars[code]
    if handler_name then
@@ -248,29 +251,34 @@ add_vt52_and_ansi(ascii.R, "key_f3")
 add_vt52_and_ansi(ascii.S, "key_f4")
 add_vt52_and_ansi = nil
 
+local decode  -- Forward declaration
+
 local function decode_escape(nextbyte, delegate)
    local c1 = nextbyte()
-   d_debug(delegate, "decode_escape: c=%c (0x%02X)", c1, c1)
+   if c1 == nil then return end
+   d_debug(delegate, "decode_escape: '%c' (0x%02X)", c1, c1)
    if c1 == LBRACKET then  -- ESC[…
       return decode_csi_sequence(nextbyte, delegate)
    end
    local handler = simple_escapes[c1]
    while type(handler) == "table" do
       local c = nextbyte()
-      d_debug(delegate, "decode_escape: c=%c (0x%02X) - LOOP", c, c)
+      if c == nil then return end
+      d_debug(delegate, "decode_escape: '%c' (0x%02X) - LOOP", c, c)
       handler = handler[c]
    end
    if handler then
-      return handler(nextbyte, delegate)
+      handler(nextbyte, delegate)
    end
+   return decode(nextbyte, delegate)
 end
 
-local function decode(nextbyte, delegate)
+-- This was forward-declared
+decode = function (nextbyte, delegate)
    local byte = nextbyte()
-   if byte == ESC then
+   if byte ~= nil and byte == ESC then
       d_debug(delegate, "decode: begin escape sequence")
-      decode_escape(nextbyte, delegate)
-      return decode(nextbyte, delegate)
+      return decode_escape(nextbyte, delegate)
    end
    return byte
 end

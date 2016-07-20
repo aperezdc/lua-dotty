@@ -26,9 +26,8 @@ local function tail(c, c1, c2, c3)
 end
 
 local function decode(nextbyte, c1)
-   if c1 == nil then
-      c1 = nextbyte()
-   end
+   if c1 == nil then c1 = nextbyte() end
+   if c1 == nil then return end
 
    if c1 >= 0x00 and c1 <= 0x7F then  -- UTF8-1
       return s_char(c1), 1

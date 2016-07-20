@@ -145,4 +145,19 @@ describe("dotty.descape.decode", function ()
    it("works without a delegate", function ()
       decode(iter_bytes("\27[31;1m"))
    end)
+
+   it("handles unterminated escape sequences", function ()
+      for _, sequence in ipairs {
+         "\27",     -- Only ESC prefix
+         "\27[",    -- Only CSI prefix
+         "\27[1",   -- CSI prefix + parameter
+         "\27[1;",  -- CSI prefix + parameter + separator
+         "\27O",    -- VT100/ANSI with second byte missing
+      } do
+         assert.message(string.format("unterminated sequence %q", sequence))
+            .not_has_error(function ()
+               decode(iter_bytes(sequence))
+            end)
+      end
+   end)
 end)
