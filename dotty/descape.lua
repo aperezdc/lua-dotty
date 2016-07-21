@@ -329,9 +329,14 @@ simple_escapes[LBRACKET] = decode_csi_sequence
 -- This was forward-declared
 decode = function (nextbyte, delegate)
    local byte = nextbyte()
-   if byte ~= nil and byte == ESC then
-      d_debug(delegate, "decode: begin escape sequence")
-      return decode_escape(nextbyte, delegate)
+   if byte ~= nil then
+      if byte == ESC then
+         d_debug(delegate, "decode: begin escape sequence")
+         return decode_escape(nextbyte, delegate)
+      elseif byte == 0x9B then  -- Single-byte CSI
+         d_debug(delegate, "decode: single-byte CSI sequence")
+         return decode_csi_sequence(nextbyte, delegate)
+      end
    end
    return byte
 end

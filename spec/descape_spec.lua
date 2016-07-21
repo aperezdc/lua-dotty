@@ -123,6 +123,14 @@ describe("dotty.descape.decode", function ()
          0x2026)
    end)
 
+   it("accepts 0x9B as single-byte CSI", function ()
+      local delegate = {}
+      stub(delegate, "key_up")
+      decode(iter_bytes(string.char(0x9B) .. "1;1A"), delegate)
+      assert.stub(delegate.key_up).called_with(delegate,
+         { ctrl = false, alt = false, shift = false }, 1)
+   end)
+
    it("handles DSR reports", function ()
       local delegate = {}
       stub(delegate, "device_status_reported")
