@@ -59,6 +59,7 @@ for _, name in ipairs {
    "key_f7", "key_f8", "key_f9", "key_f10", "key_f11", "key_f12",
    "key_home", "key_end", "key_pageup", "key_pagedown",
    "key_insert", "key_delete",
+   "key",
 } do reporter(name) end
 
 

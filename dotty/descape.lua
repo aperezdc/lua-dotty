@@ -144,6 +144,7 @@ local csi_final_chars = {
       return "device_status_reported", (params.n == 1) and params[1] or 0
    end,
 
+   [ascii.u] = function (p) return csi_add_modifier_flags(p, "key") end,
    [ascii.A] = function (p) return csi_add_modifier_flags(p, "key_up") end,
    [ascii.B] = function (p) return csi_add_modifier_flags(p, "key_down") end,
    [ascii.C] = function (p) return csi_add_modifier_flags(p, "key_right") end,

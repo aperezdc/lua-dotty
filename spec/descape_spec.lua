@@ -110,6 +110,19 @@ describe("dotty.descape.decode", function ()
       test_delegate_keys(keys_with_modifiers("\27[%(code)s%(modifier)s~",
                                              csi_tilde_keys)))
 
+   it("handles extended CSI-u keys", function ()
+      local delegate = {}
+      stub(delegate, "key")
+      decode(iter_bytes("\27[8230u"), delegate)
+      assert.stub(delegate.key).called_with(delegate,
+         { ctrl = false, alt = false, shift = false },
+         0x2026)  -- U+2026 / 8230 is '…'
+      decode(iter_bytes("\27[8230;5u"), delegate)
+      assert.stub(delegate.key).called_with(delegate,
+         { ctrl = true, alt = false, shift = false },
+         0x2026)
+   end)
+
    it("handles DSR reports", function ()
       local delegate = {}
       stub(delegate, "device_status_reported")
