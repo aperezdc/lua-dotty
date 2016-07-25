@@ -24,9 +24,11 @@ local inspect = require "inspect"
 --
 local delegate = {}
 
-function delegate:debug(message)
-   io.write("\27[36m[debug] \27[37m" .. message .. "\27[0m\n\r")
-   io.flush()
+if arg[1] == "debug" then
+   function delegate:debug(message)
+      io.write("\27[36m[debug] \27[37m" .. message .. "\27[0m\n\r")
+      io.flush()
+   end
 end
 
 function delegate:warning(message)
