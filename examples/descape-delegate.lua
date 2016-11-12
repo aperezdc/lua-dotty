@@ -123,8 +123,8 @@ ttyctl(io.stdout):with_cbreak(function ()
       end
       -- Leave one extra cell empty after a double-width character.
       local space = (wcwidth(rune) == 2) and " " or ""
-      io.write(string.format("\27[1;32minput\27[0;0m: '%s%s' (U+%2X)\n\r",
-                             input, space, rune))
+      io.write(string.format("\27[1;32minput\27[0;0m: '%s%s' (U+%X, %d)\n\r",
+                             input, space, rune, rune))
       io.flush()
    end
 end)

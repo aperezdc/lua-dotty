@@ -217,8 +217,8 @@ local function decode_csi_sequence(nextbyte, delegate)
       end
    end
 
-   d_debug(delegate, "decode_csi_sequence: #param=%d c=%s imm=%s",
-           #params, c, imm)
+   d_debug(delegate, "decode_csi_sequence: '%c' (0x%02X) #param=%d imm=0x%02X",
+           c, c, #params, imm == nil and 0 or imm)
 
    local handler_name = imm and csi_imm_final_chars[imm][c]
                              or csi_final_chars[c]
