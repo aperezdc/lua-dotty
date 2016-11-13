@@ -300,16 +300,16 @@ decode_escape = function (nextbyte, delegate)
    if c == nil then return end
    d_debug(delegate, "decode_escape: '%c' (0x%02X)", c, c)
    if c == ESC then return decode_escape(nextbyte, delegate) end
-   if c == SUB or c1 == CAN then return decode(nextbyte, delegate) end
+   if c == SUB or c == CAN then return decode(nextbyte, delegate) end
 
    local handler = simple_escapes[c]
    while type(handler) == "table" do
-      local c = nextbyte()
-      if c == nil then return end
-      d_debug(delegate, "decode_escape: '%c' (0x%02X) - NESTED", c, c)
-      if c == ESC then return decode_escape(nextbyte, delegate) end
-      if c == SUB or c1 == CAN then return decode(nextbyte, delegate) end
-      handler = handler[c]
+      local c1 = nextbyte()
+      if c1 == nil then return end
+      d_debug(delegate, "decode_escape: '%c' (0x%02X) - NESTED", c1, c1)
+      if c1 == ESC then return decode_escape(nextbyte, delegate) end
+      if c1 == SUB or c1 == CAN then return decode(nextbyte, delegate) end
+      handler = handler[c1]
    end
    if handler then
       return handler(nextbyte, delegate)
