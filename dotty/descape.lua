@@ -11,6 +11,7 @@ local ascii = require "dotty.asciicodes"
 local ESC, CAN, SUB, QMARK = ascii.ESC, ascii.CAN, ascii.SUB, ascii.QMARK
 local SEMICOLON, LBRACKET = ascii.SEMICOLON, ascii.LBRACKET
 local DIGIT_0, DIGIT_9 = ascii.DIGIT_0, ascii.DIGIT_9
+local ASCII_A, ASCII_Z, ASCII_a, ASCII_z = ascii.A, ascii.Z, ascii.a, ascii.z
 
 local s_char, getmetatable = string.char, getmetatable
 local error, pcall, type, t_insert = error, pcall, type, table.insert
@@ -314,6 +315,39 @@ decode_escape = function (nextbyte, delegate)
    if handler then
       return handler(nextbyte, delegate)
    end
+
+   --
+   -- Alt+<key> is received
+   --
+   if c >= ASCII_A and c <= ASCII_Z then
+      --
+      -- XXX: Some of the Alt+<key> escapes will be recognized as VT-52
+      --      lingo for keypad arrow keys and F1-F4. There is no easy
+      --      solution which would allow disabling recognition of the
+      --      VT-52 sequences in order to have them reported here without
+      --      doing terminal detection. Then again, probably developers
+      --      should not try to use keybindings like Alt+A to save their
+      --      applications from breaking in terminals which do use VT-52
+      --      escapes for reporting the extended keys. Ugly.
+      --
+      local t = { shift = true, ctrl = false, alt = true }
+      d_invoke(delegate, "key", t, c + (ASCII_a - ASCII_A))
+      return decode(nextbyte, delegate)
+   end
+   if c >= ASCII_a and c <= ASCII_z or c >= DIGIT_0 and c <= DIGIT_9 then
+      --
+      -- XXX: Unfortunately, ASCII codes for the numeric row may vary
+      --      depending on the keyboard layout selected by the user, so
+      --      we can only accurately set the "shift" flag for letters.
+      --      Moreover, their ASCII codes fall into the category of
+      --      characters which "cancel" a escape sequence (see comment
+      --      next to the discard() function).
+      --
+      local t = { shift = false, ctrl = false, alt = true }
+      d_invoke(delegate, "key", t, c)
+      return decode(nextbyte, delegate)
+   end
+
    return discard(nextbyte, delegate, c, DISCARD_ESCAPE)
 end
 

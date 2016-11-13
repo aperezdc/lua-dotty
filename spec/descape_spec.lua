@@ -203,6 +203,44 @@ describe("dotty.descape.decode", function ()
       end
    end)
 
+   it("recognizes Alt+<key>", function ()
+      local iter_keys = function (s)
+         return coroutine.wrap(function ()
+            for i = 1, #s do
+               coroutine.yield(s:sub(i, i))
+            end
+         end)
+      end
+
+      -- All caps except the ones in VT-52 keypad/F1-F4 escapes.
+      -- TODO: Check whether "O" can be added here.
+      local flags = { shift = true, ctrl = false, alt = true }
+      for key in iter_keys "EGIJKLMNTUVWXYZ" do
+         local delegate = {}
+         stub(delegate, "key")
+         local seq = "\27" .. key
+         local msg = string.format("Alt+%s sequence (%q)", key, seq)
+         assert.message(msg).not_has_error(function ()
+            decode(iter_bytes(seq), delegate)
+         end)
+         assert.stub(delegate.key).message(msg)
+            .called_with(delegate, flags, key:lower():byte())
+      end
+
+      local flags = { shift = false, ctrl = false, alt = true }
+      for key in iter_keys "abcdefghijklmnopqrstuvwxyz" do
+         local delegate = {}
+         stub(delegate, "key")
+         local seq = "\27" .. key
+         local msg = string.format("Alt+%s sequence (%q)", key, seq)
+         assert.message(msg).not_has_error(function ()
+            decode(iter_bytes(seq), delegate)
+         end)
+         assert.stub(delegate.key).message(msg)
+            .called_with(delegate, flags, key:byte())
+      end
+   end)
+
    local function decode_loop(input, delegate)
       local nextbyte = iter_bytes(input)
       local result = ""
