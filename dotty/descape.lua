@@ -7,8 +7,6 @@
 -- Distributed under terms of the MIT license.
 --
 
-local unidecode = require "dotty.unidecode"
-
 local ascii = require "dotty.asciicodes"
 local ESC, CAN, SUB, QMARK = ascii.ESC, ascii.CAN, ascii.SUB, ascii.QMARK
 local SEMICOLON, LBRACKET = ascii.SEMICOLON, ascii.LBRACKET
