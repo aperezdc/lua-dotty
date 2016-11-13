@@ -194,7 +194,7 @@ describe("dotty.descape.decode", function ()
       } do
          local delegate = {}
          stub(delegate, "device_status_reported")
-         local msg = string.format("CAN/SUB sequenc %q", sequence)
+         local msg = string.format("CAN/SUB sequence %q", sequence)
          assert.message(msg).not_has_error(function ()
             decode(iter_bytes(sequence), delegate)
          end)
