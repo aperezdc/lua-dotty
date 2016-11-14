@@ -301,7 +301,6 @@ decode_escape = function (nextbyte, delegate)
    if c == nil then return end
    d_debug(delegate, "decode_escape: '%c' (0x%02X)", c, c)
    if c == ESC then return decode_escape(nextbyte, delegate) end
-   if c == SUB or c == CAN then return decode(nextbyte, delegate) end
 
    local handler = simple_escapes[c]
    while type(handler) == "table" do
@@ -345,6 +344,18 @@ decode_escape = function (nextbyte, delegate)
       --
       local t = { shift = false, ctrl = false, alt = true }
       d_invoke(delegate, "key", t, c)
+      return decode(nextbyte, delegate)
+   end
+
+   --
+   -- Ctrl+Alt+<key> is received
+   -- The codes 0x01 to 0x1A correspond to keys A-Z.
+   --
+   -- TODO: Handle non-alphabetic keys.
+   --
+   if c >= 0x01 and c <= 0x1A --[[ 032 ]] then
+      local t = { shift = false, ctrl = true, alt = true }
+      d_invoke(delegate, "key", t, c + ASCII_a - 1)
       return decode(nextbyte, delegate)
    end
 
