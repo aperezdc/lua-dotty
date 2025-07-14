@@ -1,0 +1,42 @@
+name: Test
+on:
+  - push
+  - pull_request_target
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        lua:
+          - "5.4"
+          - "5.3"
+          - "5.2"
+          - "5.1"
+          - "luajit-2.1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .lua/
+            .luarocks/
+          key: ${{ runner.os }}-${{ matrix.lua }}-${{ hashFiles('.github/workflows/test.yml') }}
+      - uses: leafo/gh-actions-lua@v11
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          luaVersion: ${{ matrix.lua }}
+      - uses: leafo/gh-actions-luarocks@v5
+        with:
+          luarocksVersion: "3.12.2"
+      - name: Install Dependencies
+        run: |
+          luarocks install busted
+          luarocks install cluacov
+          luarocks install luacov-coveralls
+      - name: Test
+        run: |
+          timeout 120 busted -c -o utfTerminal
+      - name: Upload Coverage Report
+        run: |
+          luacov-coveralls -e '.luarocks/' -e examples/ -e spec/ -e luarocks/ -i dotty/ -v --dryrun
