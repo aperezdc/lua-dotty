@@ -1,7 +1,7 @@
 lua-dotty
 =========
 
-[![Build Status](https://travis-ci.org/aperezdc/lua-dotty.svg?branch=master)](https://travis-ci.org/aperezdc/lua-dotty)
+[![Test Status](https://github.com/aperezdc/lua-dotty/actions/workflows/test.yml/badge.svg)](https://github.com/aperezdc/lua-dotty/actions/workflows/test.yml)
 [![Coverage Status](https://coveralls.io/repos/github/aperezdc/lua-dotty/badge.svg?branch=master)](https://coveralls.io/github/aperezdc/lua-dotty?branch=master)
 
 Usage
